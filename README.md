@@ -53,6 +53,12 @@ attempts.
 
 ## Changes
 
+### v0.2.2
+
+- `collage.json`: the plugin described to editors — its template functions,
+  snippets and configuration schema — for the Collage Snippets & Highlighter
+  extension and any tool reading it.
+
 ### v0.2.1
 
 - Requires collage-live v0.2.1, which fixes a tab coming back from the

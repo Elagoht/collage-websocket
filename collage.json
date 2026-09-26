@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Elagoht/collage-snippets-highlighter/main/schemas/collage-plugin-manifest.schema.json",
+  "name": "elagoht/websocket",
+  "description": "A collage plugin that carries collage-live's pushed fragments over a WebSocket instead of an event stream.",
+  "repository": "https://github.com/Elagoht/collage-websocket"
+}
