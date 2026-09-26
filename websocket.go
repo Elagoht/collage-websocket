@@ -82,7 +82,7 @@ func NewWith(lv *live.Plugin, opts Options) *Plugin {
 }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.1.0" }
+func (p *Plugin) Version() string { return "0.2.0" }
 
 // Init serves the WebSocket.
 func (p *Plugin) Init(_ context.Context, host collage.Host) error {
@@ -106,7 +106,7 @@ func (p *Plugin) Shutdown(context.Context) error { return nil }
 // path is answered with a plain 400 a developer can read, and the forgery cookie a
 // pushed form needs goes out on the upgrade response.
 func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
-	sub, err := p.live.Subscribe(r, r.URL.Query()["f"])
+	sub, err := p.live.Subscribe(r, live.ParseWatches(r.URL.Query()["f"]))
 	switch {
 	case errors.Is(err, live.ErrClosed):
 		http.Error(w, "shutting down", http.StatusServiceUnavailable)
@@ -152,7 +152,21 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 	if err := send(sub.Initial()); err != nil {
 		return
 	}
+	var expired <-chan time.Time
+	if age := p.live.MaxStreamAge(); age > 0 {
+		timer := time.NewTimer(age)
+		defer timer.Stop()
+		expired = timer.C
+	}
 	for {
+		select {
+		case <-expired:
+			// Closed from here, the client reconnects with the cookies it holds
+			// now; see live.Config.MaxStreamAge.
+			conn.Close(websocket.StatusNormalClosure, "reconnect")
+			return
+		default:
+		}
 		wait, cancel := context.WithTimeout(ctx, p.opts.Ping)
 		msgs, err := sub.Wait(wait)
 		cancel()

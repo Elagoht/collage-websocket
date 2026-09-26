@@ -10,7 +10,7 @@ app, err := collage.New(&collage.Config{
 })
 ```
 
-Requires collage v0.18.0 and collage-live v0.1.0 or later. Register collage-live as
+Requires collage v0.19.0 and collage-live v0.2.0 or later. Register collage-live as
 well, before this plugin.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
@@ -41,7 +41,19 @@ A connection carries the reader's cookies, so by default only a page from the si
 itself may open one: a page on another origin is refused with 403. `OriginPatterns`
 names others that may.
 
+The client opens the WebSocket from collage-live's shared worker, so every tab of
+the browser shares one connection, as with the event stream. collage-live's
+`maxStreamAge` applies here too: the connection is closed after that long, and the
+client reopens it with the cookies it holds then.
+
 A URL that is not a fragment path is refused with 400 before the upgrade. The
 connection is pinged when idle, and closed with "going away" when the application
 shuts down; the client reconnects, and falls back to polling after three failed
 attempts.
+
+## Changes
+
+### v0.2.0
+
+- Follows collage-live v0.2.0: watches carry the ETag the client holds, and
+  `maxStreamAge` closes the connection for the client to reopen.
