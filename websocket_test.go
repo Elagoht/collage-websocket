@@ -39,9 +39,9 @@ func newSite(t *testing.T) *site {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	cpu := collage.NewFragment("cpu", "cpu.html").WithDataHandler(func(context.Context, *collage.RenderContext) (any, []string, error) {
+	cpu := collage.NewFragment("cpu", "cpu.html").WithData(collage.DataHandler(func(context.Context, *collage.RenderContext) (int64, []string, error) {
 		return s.cpu.Load(), []string{"system:cpu"}, nil
-	}).Build()
+	})).Build()
 	page := collage.NewFragment("page", "page.html").WithSlotFragment("cpu", cpu).Build()
 	if err := app.RegisterPage(collage.NewPage("home").WithContent(page).WithPath("en", "/").
 		WithFragmentPath("en", "/live/cpu", cpu).Build()); err != nil {

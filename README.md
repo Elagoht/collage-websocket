@@ -10,7 +10,7 @@ app, err := collage.New(&collage.Config{
 })
 ```
 
-Requires collage v0.24.0 and collage-live v0.2.1 or later. Register collage-live as
+Requires collage v0.49.0 and collage-live v0.4.1 or later. Register collage-live as
 well, before this plugin.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
@@ -52,6 +52,11 @@ shuts down; the client reconnects, and falls back to polling after three failed
 attempts.
 
 ## Changes
+
+### v0.2.3
+
+- Built against collage v0.49.0, whose fragment data is a typed `collage.Data`,
+  and collage-live v0.4.1. Requires both.
 
 ### v0.2.2
 
