@@ -82,7 +82,7 @@ func NewWith(lv *live.Plugin, opts Options) *Plugin {
 }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.2.3" }
+func (p *Plugin) Version() string { return "0.2.4" }
 
 // Init serves the WebSocket.
 func (p *Plugin) Init(_ context.Context, host collage.Host) error {

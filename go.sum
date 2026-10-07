@@ -1,6 +1,6 @@
-github.com/Elagoht/collage v0.49.0 h1:kgvo+vpy9jWlKVIfvGNKHnjolWAHbke9s9jnQPJMUkM=
-github.com/Elagoht/collage v0.49.0/go.mod h1:tyGWGpujZXtCFFxn9pjws85HOFOt4QdiuRswwQhj1Qw=
-github.com/Elagoht/collage-live v0.4.1 h1:IfWiQiyXXI6BmuUaeJ2xLtUO1l/eTLAUWAChXvVe0tM=
-github.com/Elagoht/collage-live v0.4.1/go.mod h1:PXUgrg7N4Keg+BikR8mth1KnD/NLB8qHMnDGcKGAuJM=
+github.com/Elagoht/collage v0.50.0 h1:5fcYkcr/8ZmyvLf7RN2HHC4vCH4YgXb7HVdDChOhiSc=
+github.com/Elagoht/collage v0.50.0/go.mod h1:tyGWGpujZXtCFFxn9pjws85HOFOt4QdiuRswwQhj1Qw=
+github.com/Elagoht/collage-live v0.4.2 h1:hlPirTONsgsROcMYr41SB5eiy6OTHdf/gzf+W9Q1g1k=
+github.com/Elagoht/collage-live v0.4.2/go.mod h1:vEgM66ew7PFaKjVnHr1gCKnSpNyqZQGMtG3aPf8trho=
 github.com/coder/websocket v1.8.15 h1:6B2JPeOGlpff2Uz6vOEH1Vzpi0iUz20A+lPVhPHtNUA=
 github.com/coder/websocket v1.8.15/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=

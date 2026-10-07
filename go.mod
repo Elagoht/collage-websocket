@@ -6,8 +6,8 @@ module github.com/Elagoht/collage-websocket
 go 1.26
 
 require (
-	github.com/Elagoht/collage v0.49.0
-	github.com/Elagoht/collage-live v0.4.1
+	github.com/Elagoht/collage v0.50.0
+	github.com/Elagoht/collage-live v0.4.2
 )
 
 require github.com/coder/websocket v1.8.15
