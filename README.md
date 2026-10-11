@@ -3,15 +3,24 @@
 A collage plugin that carries [collage-live](https://github.com/Elagoht/collage-live)'s
 pushed fragments over a WebSocket instead of an event stream.
 
+```
+collage plugin add elagoht/websocket
+```
+
+adds collage-live too, and lists `websocket.New(nil)` before `live.New()`:
+
 ```go
-lv := live.New()
 app, err := collage.New(&collage.Config{
-	Plugins: []collage.Plugin{lv, websocket.New(lv)},
+	Plugins: []collage.Plugin{websocket.New(nil), live.New()},
 })
 ```
 
-Requires collage v0.50.0 and collage-live v0.4.2 or later. Register collage-live as
-well, before this plugin.
+`New(nil)` finds the application's collage-live plugin when the application is
+built, wherever it is listed; without one, `collage.New` fails with `websocket: no
+collage-live plugin to carry; add elagoht/live`. Passing it, `websocket.New(lv)`,
+works as before.
+
+Requires collage v0.58.0 and collage-live v0.4.2 or later.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
 the client to connect here; elements still say `data-collage-push`; each message is
@@ -52,6 +61,16 @@ shuts down; the client reconnects, and falls back to polling after three failed
 attempts.
 
 ## Changes
+
+### v0.3.0
+
+- `New(nil)` finds the application's collage-live plugin in `Configure`, through
+  collage v0.58.0's `collage.FindPlugin`, so `collage plugin add` can write it.
+  No live plugin is the error `websocket: no collage-live plugin to carry; add
+  elagoht/live`. `New(lv)` works as before.
+- collage.json `requires` elagoht/live and has `order` −1, so `collage plugin add`
+  adds live and lists this plugin before it.
+- Built against collage v0.58.0. Requires it.
 
 ### v0.2.4
 

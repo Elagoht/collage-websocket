@@ -1,10 +1,12 @@
 // Package websocket is a collage plugin that carries collage-live's pushed
 // fragments over a WebSocket instead of an event stream.
 //
-//	lv := live.New()
 //	app, err := collage.New(&collage.Config{
-//		Plugins: []collage.Plugin{lv, websocket.New(lv)},
+//		Plugins: []collage.Plugin{websocket.New(nil), live.New()},
 //	})
+//
+// New(nil) finds the application's live plugin in Configure. Passing it instead,
+// websocket.New(lv), works as it always has.
 //
 // Nothing else changes: the layout still includes {{liveClient}}, which now tells
 // the client to connect here, and elements still say data-collage-push. The
@@ -60,14 +62,15 @@ type Plugin struct {
 }
 
 // New returns a plugin carrying lv's pushes, with the default options. lv must be
-// registered with the application too, before this plugin.
+// registered with the application too. A nil lv is the application's own live
+// plugin, found in Configure; without one, the application is not built.
 func New(lv *live.Plugin) *Plugin { return NewWith(lv, Options{}) }
 
 // NewWith returns a plugin carrying lv's pushes with opts.
 //
-// It tells lv to point the client here straight away, rather than in Configure or
-// Init: lv decides in its own Init whether to serve its event stream, and it may
-// be initialised first.
+// A non-nil lv is told to point the client here straight away, and a nil one's
+// stand-in in Configure, rather than in Init: lv decides in its own Init whether
+// to serve its event stream, and it may be initialised first.
 func NewWith(lv *live.Plugin, opts Options) *Plugin {
 	if opts.Path == "" {
 		opts.Path = DefaultPath
@@ -82,12 +85,31 @@ func NewWith(lv *live.Plugin, opts Options) *Plugin {
 }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.2.4" }
+func (p *Plugin) Version() string { return "0.3.0" }
+
+// errNoLive is the error for an application without the live plugin.
+var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")
+
+// Configure finds the application's live plugin when New was given none, and
+// points its client here. Configure runs before any plugin is initialised, so
+// live sees the transport wherever it is listed.
+func (p *Plugin) Configure(_ context.Context, host collage.ConfigHost) error {
+	if p.live != nil {
+		return nil
+	}
+	lv, ok := collage.FindPlugin[*live.Plugin](host)
+	if !ok || lv == nil {
+		return errNoLive
+	}
+	lv.UseTransport(live.Transport{Kind: "ws", Path: p.opts.Path})
+	p.live = lv
+	return nil
+}
 
 // Init serves the WebSocket.
 func (p *Plugin) Init(_ context.Context, host collage.Host) error {
 	if p.live == nil {
-		return errors.New("websocket: no collage-live plugin to carry")
+		return errNoLive
 	}
 	if !strings.HasPrefix(p.opts.Path, "/") || !strings.HasSuffix(p.opts.Path, "/") {
 		return fmt.Errorf("websocket: path %q must begin and end with a slash", p.opts.Path)

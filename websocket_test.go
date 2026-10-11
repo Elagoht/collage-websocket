@@ -27,14 +27,21 @@ type site struct {
 
 func newSite(t *testing.T) *site {
 	t.Helper()
-	s := &site{lv: live.New()}
+	lv := live.New()
+	return newSiteWith(t, lv, []collage.Plugin{lv, ws.New(lv)})
+}
+
+// newSiteWith builds the site with plugins, lv among them.
+func newSiteWith(t *testing.T, lv *live.Plugin, plugins []collage.Plugin) *site {
+	t.Helper()
+	s := &site{lv: lv}
 	app, err := collage.New(&collage.Config{
 		Server: collage.ServerConfig{Host: "localhost", Port: 3000},
 		Template: collage.TemplateConfig{FS: fstest.MapFS{
 			"t/page.html": {Data: []byte(`<html><head>{{liveClient}}</head><body>{{slot "cpu"}}</body></html>`)},
 			"t/cpu.html":  {Data: []byte(`<p>cpu {{.}}</p>`)},
 		}, Root: "t"},
-		Plugins: []collage.Plugin{s.lv, ws.New(s.lv)},
+		Plugins: plugins,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -70,7 +77,11 @@ func read(t *testing.T, conn *websocket.Conn) live.Message {
 
 // The client is told to connect here, and the event stream is not served.
 func TestClientPointsHere(t *testing.T) {
-	s := newSite(t)
+	pointsHere(t, newSite(t))
+}
+
+func pointsHere(t *testing.T, s *site) {
+	t.Helper()
 	res, err := http.Get(s.server.URL + "/")
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +98,32 @@ func TestClientPointsHere(t *testing.T) {
 
 // The connection sends the current state, then a push per invalidation.
 func TestPushesOverTheSocket(t *testing.T) {
-	s := newSite(t)
+	roundTrip(t, newSite(t))
+}
+
+// New(nil), as "collage plugin add" writes it, finds the live plugin among the
+// application's own, listed after it as the manifest's order places it.
+func TestNewNilFindsLive(t *testing.T) {
+	lv := live.New()
+	s := newSiteWith(t, lv, []collage.Plugin{ws.New(nil), lv})
+	pointsHere(t, s)
+	roundTrip(t, s)
+}
+
+// New(nil) with no live plugin in the application is an error naming it.
+func TestNewNilWithoutLive(t *testing.T) {
+	_, err := collage.New(&collage.Config{
+		Server:   collage.ServerConfig{Host: "localhost", Port: 3000},
+		Template: collage.TemplateConfig{FS: fstest.MapFS{"t/page.html": {Data: []byte(`<html></html>`)}}, Root: "t"},
+		Plugins:  []collage.Plugin{ws.New(nil)},
+	})
+	if err == nil || !strings.Contains(err.Error(), "websocket: no collage-live plugin to carry; add elagoht/live") {
+		t.Fatalf("New = %v, want the missing live plugin named", err)
+	}
+}
+
+func roundTrip(t *testing.T, s *site) {
+	t.Helper()
 	s.cpu.Store(3)
 	ctx := context.Background()
 	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(s.server.URL, "http")+"/_live/ws/?f=/live/cpu", nil)
