@@ -22,7 +22,7 @@ without one, `collage.New` fails with `websocket: no collage-live plugin to carr
 add elagoht/live`. `collage plugin add` lists it before live, which is the
 recommended place.
 
-Requires collage v0.61.1 and collage-live v0.5.1 or later.
+Requires collage v0.61.4 and collage-live v0.5.1 or later.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
 the client to connect here; elements still say `data-collage-push`; each message is
@@ -77,7 +77,7 @@ reconnects, and falls back to polling after three failed attempts.
 ## Changed in v0.4.1
 
 - With live's `noStream`, a connection is answered with the site's not-found
-  page (404), where it was a plain-text 404. Requires collage v0.61.2.
+  page (404), where it was a plain-text 404. Requires collage v0.61.4.
 
 ## Changed in v0.4.0
 
