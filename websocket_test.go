@@ -178,9 +178,17 @@ func TestRemovedKeys(t *testing.T) {
 }
 
 // With live's noStream, nothing is pushed over the WebSocket either: the client
-// is not pointed at it, and a connection is refused with 404, not a logged 500.
+// is not pointed at it, and a connection is refused with the site's 404 page,
+// not a logged 500.
 func TestNoStream(t *testing.T) {
-	s := newSite(t, `{"noStream":true}`)
+	lv := live.New(live.Options{})
+	s := newSiteWith(t, lv, []collage.Plugin{ws.New(ws.Options{}), lv},
+		collagetest.WithPluginConfig(live.Name, `{"noStream":true}`),
+		collagetest.WithTemplates(map[string]string{"missing.html": `<h1>Nothing here</h1>`}),
+		collagetest.WithSetup(func(app *collage.App) error {
+			return app.RegisterNotFoundPage(collage.NewPage("missing").WithContent(collage.NewFragment("missing", "missing.html").Build()).Build())
+		}),
+	)
 	if body := s.page(t); strings.Contains(body, "data-collage-stream") {
 		t.Errorf("client is pointed at a push connection:\n%s", body)
 	}
@@ -191,6 +199,15 @@ func TestNoStream(t *testing.T) {
 			status = res.StatusCode
 		}
 		t.Errorf("dial = %v (status %d), want 404", err, status)
+	}
+	res, err := http.Get(s.server.URL + "/_live/ws/?f=/live/cpu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound || !strings.Contains(string(body), "<h1>Nothing here</h1>") {
+		t.Errorf("GET = %d %q, want 404 with the site's not-found page", res.StatusCode, body)
 	}
 	if s.logs.Has(slog.LevelError) {
 		t.Errorf("logged an error:\n%s", s.logs)

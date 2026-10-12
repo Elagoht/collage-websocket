@@ -48,7 +48,7 @@ The push settings are collage-live's, and this plugin reads them from live:
 - a connection is closed after live's `maxStreamAge`, and the client reopens it
   with the cookies it holds then;
 - with live's `noStream`, nothing is pushed over the WebSocket either: the client
-  only polls, and a connection is refused with 404.
+  only polls, and a connection is refused with 404 and the site's not-found page.
 
 The plugin's own option:
 
@@ -74,9 +74,12 @@ A URL that is not a fragment path is refused with 400 before the upgrade. The
 connection is closed with "going away" when the application shuts down; the client
 reconnects, and falls back to polling after three failed attempts.
 
-## Changes
+## Changed in v0.4.1
 
-### Changed in v0.4.0
+- With live's `noStream`, a connection is answered with the site's not-found
+  page (404), where it was a plain-text 404. Requires collage v0.61.2.
+
+## Changed in v0.4.0
 
 | Was | Now |
 | --- | --- |
@@ -92,7 +95,7 @@ event stream wherever it is listed, before or after live. Requires collage
 v0.61.1 and collage-live v0.5.1, whose event stream also closes on time at
 `maxStreamAge`.
 
-### v0.3.0
+## Changed in v0.3.0
 
 - `New(nil)` finds the application's collage-live plugin in `Configure`, through
   collage v0.58.0's `collage.FindPlugin`, so `collage plugin add` can write it.
@@ -102,29 +105,29 @@ v0.61.1 and collage-live v0.5.1, whose event stream also closes on time at
   adds live and lists this plugin before it.
 - Built against collage v0.58.0. Requires it.
 
-### v0.2.4
+## Changed in v0.2.4
 
 - Built against collage v0.50.0, whose render values are typed keys, and
   collage-live v0.4.2. Requires both.
 
-### v0.2.3
+## Changed in v0.2.3
 
 - Built against collage v0.49.0, whose fragment data is a typed `collage.Data`,
   and collage-live v0.4.1. Requires both.
 
-### v0.2.2
+## Changed in v0.2.2
 
 - `collage.json`: the plugin described to editors — its template functions,
   snippets and configuration schema — for the Collage Snippets & Highlighter
   extension and any tool reading it.
 
-### v0.2.1
+## Changed in v0.2.1
 
 - Requires collage-live v0.2.1, which fixes a tab coming back from the
   back-forward cache receiving no pushes, and makes a form whose action redirects
   navigate in one request. Requires collage v0.24.0.
 
-### v0.2.0
+## Changed in v0.2.0
 
 - Follows collage-live v0.2.0: watches carry the ETag the client holds, and
   `maxStreamAge` closes the connection for the client to reopen.

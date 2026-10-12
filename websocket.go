@@ -51,6 +51,7 @@ type Options struct {
 type Plugin struct {
 	opts Options
 	live *live.Plugin
+	host collage.Host
 	log  *slog.Logger
 	// path, keepAlive and maxAge are live's, read in Init.
 	path      string
@@ -64,7 +65,7 @@ type Plugin struct {
 func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.4.0" }
+func (p *Plugin) Version() string { return "0.4.1" }
 
 // errNoLive is the error for an application without the live plugin.
 var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")
@@ -97,7 +98,7 @@ func (p *Plugin) Init(_ context.Context, host collage.Host) error {
 	p.path = p.live.Prefix() + "ws/"
 	p.keepAlive = p.live.KeepAlive()
 	p.maxAge = p.live.MaxStreamAge()
-	p.log = host.Logger()
+	p.host, p.log = host, host.Logger()
 	p.live.UseTransport(live.Transport{Kind: "ws", Path: p.path})
 	return host.Handle(p.path, http.HandlerFunc(p.serve))
 }
@@ -119,8 +120,9 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, live.ErrNoStream):
 		// live's noStream turns pushing off over any transport; the client is not
-		// pointed here, and the event stream answers 404 too.
-		http.NotFound(w, r)
+		// pointed here, and the event stream answers 404 too: the site's own
+		// not-found page, as for any path it does not serve.
+		p.host.ServeStatus(w, r, http.StatusNotFound)
 		return
 	case errors.Is(err, collage.ErrUnknownFragmentPath), errors.Is(err, live.ErrNoFragments), errors.Is(err, live.ErrTooManyFragments):
 		http.Error(w, err.Error(), http.StatusBadRequest)
