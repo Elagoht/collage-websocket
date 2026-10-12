@@ -85,7 +85,7 @@ func NewWith(lv *live.Plugin, opts Options) *Plugin {
 }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.3.0" }
+func (p *Plugin) Version() string { return "0.3.1" }
 
 // errNoLive is the error for an application without the live plugin.
 var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")

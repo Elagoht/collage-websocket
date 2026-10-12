@@ -46,7 +46,7 @@ func newSiteWith(t *testing.T, lv *live.Plugin, plugins []collage.Plugin) *site 
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	cpu := collage.NewFragment("cpu", "cpu.html").WithData(collage.DataHandler(func(context.Context, *collage.RenderContext) (int64, []string, error) {
+	cpu := collage.NewFragment("cpu", "cpu.html").WithData(collage.LoadTagged(func(context.Context, *collage.RenderContext) (int64, []string, error) {
 		return s.cpu.Load(), []string{"system:cpu"}, nil
 	})).Build()
 	page := collage.NewFragment("page", "page.html").WithSlotFragment("cpu", cpu).Build()
