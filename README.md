@@ -17,12 +17,12 @@ app, err := collage.New(&collage.Config{
 ```
 
 The plugin finds the application's collage-live plugin when the application is
-built, wherever it is listed; without one, `collage.New` fails with `websocket: no
-collage-live plugin to carry; add elagoht/live`. List it before live, as `collage
-plugin add` does: listed after, live has already served its event stream by the
-time this plugin takes over, and both stay mounted.
+built, wherever it is listed, and live then does not serve its event stream;
+without one, `collage.New` fails with `websocket: no collage-live plugin to carry;
+add elagoht/live`. `collage plugin add` lists it before live, which is the
+recommended place.
 
-Requires collage v0.61.0 and collage-live v0.5.0 or later.
+Requires collage v0.61.1 and collage-live v0.5.1 or later.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
 the client to connect here; elements still say `data-collage-push`; each message is
@@ -87,8 +87,10 @@ reconnects, and falls back to polling after three failed attempts.
 
 Fixed: live's `maxStreamAge` closes the connection on time, where it could stay
 open up to a keep-alive (25s) longer; with live's `noStream` a connection is
-refused with 404, where it was a logged 500. Requires collage v0.61.0 and
-collage-live v0.5.0.
+refused with 404, where it was a logged 500. The plugin still replaces live's
+event stream wherever it is listed, before or after live. Requires collage
+v0.61.1 and collage-live v0.5.1, whose event stream also closes on time at
+`maxStreamAge`.
 
 ### v0.3.0
 

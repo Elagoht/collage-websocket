@@ -121,11 +121,11 @@ func TestPushesOverTheSocket(t *testing.T) {
 	roundTrip(t, newSite(t))
 }
 
-// New(Options{}), as collage plugin add writes it, finds the live plugin among
-// the application's own.
-func TestZeroOptionsFindsLive(t *testing.T) {
+// Listed after live, by hand or from the v0.3 docs, the plugin still replaces
+// live's event stream: the client points here and the stream is not served.
+func TestListedAfterLive(t *testing.T) {
 	lv := live.New(live.Options{})
-	s := newSiteWith(t, lv, []collage.Plugin{ws.New(ws.Options{}), lv})
+	s := newSiteWith(t, lv, []collage.Plugin{lv, ws.New(ws.Options{})})
 	pointsHere(t, s)
 	roundTrip(t, s)
 }

@@ -5,12 +5,11 @@
 //		Plugins: []collage.Plugin{websocket.New(websocket.Options{}), live.New(live.Options{})},
 //	})
 //
-// The plugin finds the application's live plugin in Configure, and serves the
-// WebSocket at live's prefix plus "ws/" ("/_live/ws/" by default), pinging an
-// idle connection every live keepAlive and closing one after live's
-// maxStreamAge: the push settings are live's, read from it in Init. List it
-// before live, as collage plugin add does, so live does not serve its event
-// stream as well.
+// The plugin finds the application's live plugin in Configure, wherever it is
+// listed, and replaces live's event stream. It serves the WebSocket at live's
+// prefix plus "ws/" ("/_live/ws/" by default), pinging an idle connection every
+// live keepAlive and closing one after live's maxStreamAge: the push settings
+// are live's, read from it in Init. collage plugin add lists it before live.
 //
 // Nothing else changes: the layout still includes {{liveClient}}, which now tells
 // the client to connect here, and elements still say data-collage-push. The
@@ -81,14 +80,16 @@ func (p *Plugin) Configure(_ context.Context, host collage.ConfigHost) error {
 	if !ok || lv == nil {
 		return errNoLive
 	}
+	// Reserve the transport now, before any plugin's Init, so live never serves
+	// its event stream wherever it is listed. The path is set in Init, once
+	// live's prefix is final.
+	lv.UseTransport(live.Transport{Kind: "ws"})
 	p.live = lv
 	return nil
 }
 
 // Init reads live's push settings, final now that every plugin's Configure has
-// run, points live's client here and serves the WebSocket. Listed before live,
-// as the manifest's order places it, it runs before live's Init, which then
-// does not serve its event stream.
+// run, points live's client at the WebSocket's path and serves it.
 func (p *Plugin) Init(_ context.Context, host collage.Host) error {
 	if p.live == nil {
 		return errNoLive
