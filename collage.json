@@ -6,5 +6,19 @@
   "requires": [
     "elagoht/live"
   ],
-  "order": -1
+  "order": -1,
+  "config": {
+    "type": "object",
+    "description": "A collage plugin that carries collage-live's pushed fragments over a WebSocket instead of an event stream.",
+    "properties": {
+      "originPatterns": {
+        "type": "array",
+        "description": "OriginPatterns are the hosts, besides the site's own, whose pages may connect — as github.com/coder/websocket matches them. A connection carries the reader's cookies, so a page on another origin must not be able to open one on the reader's behalf; the default allows only the site itself.",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "additionalProperties": false
+  }
 }

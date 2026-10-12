@@ -2,11 +2,15 @@
 // fragments over a WebSocket instead of an event stream.
 //
 //	app, err := collage.New(&collage.Config{
-//		Plugins: []collage.Plugin{websocket.New(nil), live.New()},
+//		Plugins: []collage.Plugin{websocket.New(websocket.Options{}), live.New(live.Options{})},
 //	})
 //
-// New(nil) finds the application's live plugin in Configure. Passing it instead,
-// websocket.New(lv), works as it always has.
+// The plugin finds the application's live plugin in Configure, and serves the
+// WebSocket at live's prefix plus "ws/" ("/_live/ws/" by default), pinging an
+// idle connection every live keepAlive and closing one after live's
+// maxStreamAge: the push settings are live's, read from it in Init. List it
+// before live, as collage plugin add does, so live does not serve its event
+// stream as well.
 //
 // Nothing else changes: the layout still includes {{liveClient}}, which now tells
 // the client to connect here, and elements still say data-collage-push. The
@@ -22,10 +26,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	live "github.com/Elagoht/collage-live"
@@ -36,86 +38,67 @@ import (
 // Name is the plugin's name, and the key its configuration is found under.
 const Name = "elagoht/websocket"
 
-// DefaultPath is where the WebSocket is served.
-const DefaultPath = "/_live/ws/"
-
-// Options configures the plugin. Everything has a default.
+// Options configures the plugin. Everything has a default; the push settings
+// (prefix, keepAlive, maxStreamAge, noStream) are collage-live's.
 type Options struct {
-	// Path is where the WebSocket is served. It begins and ends with a slash.
-	// Default "/_live/ws/".
-	Path string
-	// Ping is how often an idle connection is pinged, so a proxy that closes quiet
-	// connections leaves it open and a peer that vanished is noticed. Default 25s.
-	Ping time.Duration
 	// OriginPatterns are the hosts, besides the site's own, whose pages may
 	// connect — as github.com/coder/websocket matches them. A connection carries
 	// the reader's cookies, so a page on another origin must not be able to open
 	// one on the reader's behalf; the default allows only the site itself.
-	OriginPatterns []string
+	OriginPatterns []string `json:"originPatterns"`
 }
 
 // Plugin serves the WebSocket.
 type Plugin struct {
-	live *live.Plugin
 	opts Options
+	live *live.Plugin
 	log  *slog.Logger
+	// path, keepAlive and maxAge are live's, read in Init.
+	path      string
+	keepAlive time.Duration
+	maxAge    time.Duration
 }
 
-// New returns a plugin carrying lv's pushes, with the default options. lv must be
-// registered with the application too. A nil lv is the application's own live
-// plugin, found in Configure; without one, the application is not built.
-func New(lv *live.Plugin) *Plugin { return NewWith(lv, Options{}) }
-
-// NewWith returns a plugin carrying lv's pushes with opts.
-//
-// A non-nil lv is told to point the client here straight away, and a nil one's
-// stand-in in Configure, rather than in Init: lv decides in its own Init whether
-// to serve its event stream, and it may be initialised first.
-func NewWith(lv *live.Plugin, opts Options) *Plugin {
-	if opts.Path == "" {
-		opts.Path = DefaultPath
-	}
-	if opts.Ping <= 0 {
-		opts.Ping = 25 * time.Second
-	}
-	if lv != nil {
-		lv.UseTransport(live.Transport{Kind: "ws", Path: opts.Path})
-	}
-	return &Plugin{live: lv, opts: opts}
-}
+// New returns the plugin with opts as its starting point, which the
+// application's own configuration is then decoded over. The application must
+// have collage-live too; without it, it is not built.
+func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.3.1" }
+func (p *Plugin) Version() string { return "0.4.0" }
 
 // errNoLive is the error for an application without the live plugin.
 var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")
 
-// Configure finds the application's live plugin when New was given none, and
-// points its client here. Configure runs before any plugin is initialised, so
-// live sees the transport wherever it is listed.
+// Configure reads the configuration and finds the application's live plugin.
 func (p *Plugin) Configure(_ context.Context, host collage.ConfigHost) error {
-	if p.live != nil {
-		return nil
+	opts, err := collage.PluginConfig(host, p.opts)
+	if err != nil {
+		return err
 	}
+	p.opts = opts
 	lv, ok := collage.FindPlugin[*live.Plugin](host)
 	if !ok || lv == nil {
 		return errNoLive
 	}
-	lv.UseTransport(live.Transport{Kind: "ws", Path: p.opts.Path})
 	p.live = lv
 	return nil
 }
 
-// Init serves the WebSocket.
+// Init reads live's push settings, final now that every plugin's Configure has
+// run, points live's client here and serves the WebSocket. Listed before live,
+// as the manifest's order places it, it runs before live's Init, which then
+// does not serve its event stream.
 func (p *Plugin) Init(_ context.Context, host collage.Host) error {
 	if p.live == nil {
 		return errNoLive
 	}
-	if !strings.HasPrefix(p.opts.Path, "/") || !strings.HasSuffix(p.opts.Path, "/") {
-		return fmt.Errorf("websocket: path %q must begin and end with a slash", p.opts.Path)
-	}
+	p.path = p.live.Prefix() + "ws/"
+	p.keepAlive = p.live.KeepAlive()
+	p.maxAge = p.live.MaxStreamAge()
 	p.log = host.Logger()
-	return host.Handle(p.opts.Path, http.HandlerFunc(p.serve))
+	p.live.UseTransport(live.Transport{Kind: "ws", Path: p.path})
+	return host.Handle(p.path, http.HandlerFunc(p.serve))
 }
 
 // Shutdown releases nothing. The connections end when collage-live closes its
@@ -132,6 +115,11 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, live.ErrClosed):
 		http.Error(w, "shutting down", http.StatusServiceUnavailable)
+		return
+	case errors.Is(err, live.ErrNoStream):
+		// live's noStream turns pushing off over any transport; the client is not
+		// pointed here, and the event stream answers 404 too.
+		http.NotFound(w, r)
 		return
 	case errors.Is(err, collage.ErrUnknownFragmentPath), errors.Is(err, live.ErrNoFragments), errors.Is(err, live.ErrTooManyFragments):
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -174,22 +162,24 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 	if err := send(sub.Initial()); err != nil {
 		return
 	}
-	var expired <-chan time.Time
-	if age := p.live.MaxStreamAge(); age > 0 {
-		timer := time.NewTimer(age)
-		defer timer.Stop()
-		expired = timer.C
+	// deadline is when the connection is closed for the client to reconnect with
+	// the cookies it holds then; see live.Options.MaxStreamAge. Each wait ends at
+	// it, so the connection does not outlive it by up to a keep-alive.
+	var deadline time.Time
+	if p.maxAge > 0 {
+		deadline = time.Now().Add(p.maxAge)
 	}
+	expired := func() bool { return !deadline.IsZero() && !time.Now().Before(deadline) }
 	for {
-		select {
-		case <-expired:
-			// Closed from here, the client reconnects with the cookies it holds
-			// now; see live.Config.MaxStreamAge.
+		if expired() {
 			conn.Close(websocket.StatusNormalClosure, "reconnect")
 			return
-		default:
 		}
-		wait, cancel := context.WithTimeout(ctx, p.opts.Ping)
+		timeout := p.keepAlive
+		if !deadline.IsZero() {
+			timeout = min(timeout, time.Until(deadline))
+		}
+		wait, cancel := context.WithTimeout(ctx, timeout)
 		msgs, err := sub.Wait(wait)
 		cancel()
 		switch {
@@ -198,6 +188,9 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil:
+			if expired() {
+				continue
+			}
 			ping, cancel := context.WithTimeout(ctx, 10*time.Second)
 			err := conn.Ping(ping)
 			cancel()

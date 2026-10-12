@@ -7,20 +7,22 @@ pushed fragments over a WebSocket instead of an event stream.
 collage plugin add elagoht/websocket
 ```
 
-adds collage-live too, and lists `websocket.New(nil)` before `live.New()`:
+adds collage-live too, and lists `websocket.New(websocket.Options{})` before
+`live.New(live.Options{})`:
 
 ```go
 app, err := collage.New(&collage.Config{
-	Plugins: []collage.Plugin{websocket.New(nil), live.New()},
+	Plugins: []collage.Plugin{websocket.New(websocket.Options{}), live.New(live.Options{})},
 })
 ```
 
-`New(nil)` finds the application's collage-live plugin when the application is
+The plugin finds the application's collage-live plugin when the application is
 built, wherever it is listed; without one, `collage.New` fails with `websocket: no
-collage-live plugin to carry; add elagoht/live`. Passing it, `websocket.New(lv)`,
-works as before.
+collage-live plugin to carry; add elagoht/live`. List it before live, as `collage
+plugin add` does: listed after, live has already served its event stream by the
+time this plugin takes over, and both stay mounted.
 
-Requires collage v0.58.0 and collage-live v0.4.2 or later.
+Requires collage v0.61.0 and collage-live v0.5.0 or later.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
 the client to connect here; elements still say `data-collage-push`; each message is
@@ -38,12 +40,27 @@ is why it is a plugin of its own.
 
 ## Options
 
-```go
-websocket.NewWith(lv, websocket.Options{
-	Path:           "/_live/ws/",   // where it is served
-	Ping:           25 * time.Second,
-	OriginPatterns: []string{"admin.example.com"},
-})
+The push settings are collage-live's, and this plugin reads them from live:
+
+- the WebSocket is served at live's `prefix` plus `ws/`: `/_live/ws/` by default,
+  `/push/ws/` with `"prefix": "/push/"`;
+- an idle connection is pinged every live `keepAlive` (25s by default);
+- a connection is closed after live's `maxStreamAge`, and the client reopens it
+  with the cookies it holds then;
+- with live's `noStream`, nothing is pushed over the WebSocket either: the client
+  only polls, and a connection is refused with 404.
+
+The plugin's own option:
+
+| Option | JSON | Default | |
+| --- | --- | --- | --- |
+| `OriginPatterns` | `originPatterns` | the site's own origin | Hosts besides the site's own whose pages may connect, as github.com/coder/websocket matches them |
+
+```json
+{
+  "elagoht/live": { "prefix": "/push/", "keepAlive": "20s", "maxStreamAge": "1h" },
+  "elagoht/websocket": { "originPatterns": ["admin.example.com"] }
+}
 ```
 
 A connection carries the reader's cookies, so by default only a page from the site
@@ -51,16 +68,27 @@ itself may open one: a page on another origin is refused with 403. `OriginPatter
 names others that may.
 
 The client opens the WebSocket from collage-live's shared worker, so every tab of
-the browser shares one connection, as with the event stream. collage-live's
-`maxStreamAge` applies here too: the connection is closed after that long, and the
-client reopens it with the cookies it holds then.
+the browser shares one connection, as with the event stream.
 
 A URL that is not a fragment path is refused with 400 before the upgrade. The
-connection is pinged when idle, and closed with "going away" when the application
-shuts down; the client reconnects, and falls back to polling after three failed
-attempts.
+connection is closed with "going away" when the application shuts down; the client
+reconnects, and falls back to polling after three failed attempts.
 
 ## Changes
+
+### Changed in v0.4.0
+
+| Was | Now |
+| --- | --- |
+| `websocket.New(lv)`, `websocket.New(nil)`, `websocket.NewWith(lv, opts)` | `websocket.New(websocket.Options{})`; live is always found in the application |
+| `Options.Path`, `websocket.DefaultPath` | removed: the WebSocket is served at live's `prefix` + `ws/` |
+| `Options.Ping` | removed: live's `keepAlive` |
+| configuration ignored | `"elagoht/websocket"` in plugins-config.json is read: `originPatterns`; `path` or `ping` there stops the application with `unknown key` |
+
+Fixed: live's `maxStreamAge` closes the connection on time, where it could stay
+open up to a keep-alive (25s) longer; with live's `noStream` a connection is
+refused with 404, where it was a logged 500. Requires collage v0.61.0 and
+collage-live v0.5.0.
 
 ### v0.3.0
 
