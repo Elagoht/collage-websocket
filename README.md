@@ -22,7 +22,7 @@ without one, `collage.New` fails with `websocket: no collage-live plugin to carr
 add elagoht/live`. `collage plugin add` lists it before live, which is the
 recommended place.
 
-Requires collage v0.61.4 and collage-live v0.5.1 or later.
+Requires collage v0.67.0, collage-live v0.5.1 and collage-client v0.1.1 or later.
 
 Nothing else changes. The layout still includes `{{liveClient}}`, which now tells
 the client to connect here; elements still say `data-collage-push`; each message is
@@ -76,9 +76,10 @@ reconnects, and falls back to polling after three failed attempts.
 
 ## Changed in v0.4.2
 
-- Tests only: the test sites register collage-client, which collage-live v0.6.0
-  requires. The README's example lists it too. The plugin itself is unchanged and
-  works with collage-live v0.5.1 and later.
+- The test sites register collage-client, which collage-live v0.6.0 requires, and
+  the README's example lists it too. The plugin's code is unchanged and works
+  with collage-live v0.5.1 and later, but its module now names collage-client,
+  so it requires collage v0.67.0.
 
 ## Changed in v0.4.1
 
