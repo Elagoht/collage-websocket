@@ -7,10 +7,10 @@ go 1.26
 
 require (
 	github.com/Elagoht/collage v0.67.0
-	github.com/Elagoht/collage-live v0.5.1
+	github.com/Elagoht/collage-live v0.6.0
 )
 
 require (
-	github.com/Elagoht/collage-client v0.1.1
+	github.com/Elagoht/collage-client v0.2.0
 	github.com/coder/websocket v1.8.15
 )
