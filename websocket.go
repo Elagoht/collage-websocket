@@ -2,7 +2,7 @@
 // fragments over a WebSocket instead of an event stream.
 //
 //	app, err := collage.New(&collage.Config{
-//		Plugins: []collage.Plugin{websocket.New(websocket.Options{}), live.New(live.Options{})},
+//		Plugins: []collage.Plugin{client.New(), websocket.New(websocket.Options{}), live.New(live.Options{})},
 //	})
 //
 // The plugin finds the application's live plugin in Configure, wherever it is
@@ -65,7 +65,7 @@ type Plugin struct {
 func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.4.1" }
+func (p *Plugin) Version() string { return "0.4.2" }
 
 // errNoLive is the error for an application without the live plugin.
 var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")

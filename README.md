@@ -7,12 +7,12 @@ pushed fragments over a WebSocket instead of an event stream.
 collage plugin add elagoht/websocket
 ```
 
-adds collage-live too, and lists `websocket.New(websocket.Options{})` before
-`live.New(live.Options{})`:
+adds collage-live too, and collage-client, which live requires, and lists
+`websocket.New(websocket.Options{})` before `live.New(live.Options{})`:
 
 ```go
 app, err := collage.New(&collage.Config{
-	Plugins: []collage.Plugin{websocket.New(websocket.Options{}), live.New(live.Options{})},
+	Plugins: []collage.Plugin{client.New(), websocket.New(websocket.Options{}), live.New(live.Options{})},
 })
 ```
 
@@ -73,6 +73,12 @@ the browser shares one connection, as with the event stream.
 A URL that is not a fragment path is refused with 400 before the upgrade. The
 connection is closed with "going away" when the application shuts down; the client
 reconnects, and falls back to polling after three failed attempts.
+
+## Changed in v0.4.2
+
+- Tests only: the test sites register collage-client, which collage-live v0.6.0
+  requires. The README's example lists it too. The plugin itself is unchanged and
+  works with collage-live v0.5.1 and later.
 
 ## Changed in v0.4.1
 

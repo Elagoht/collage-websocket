@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	client "github.com/Elagoht/collage-client"
 	live "github.com/Elagoht/collage-live"
 	ws "github.com/Elagoht/collage-websocket"
 	"github.com/Elagoht/collage/pkg/collage"
@@ -39,7 +40,8 @@ func newSite(t *testing.T, liveConfig ...string) *site {
 	return newSiteWith(t, lv, []collage.Plugin{ws.New(ws.Options{}), lv}, options...)
 }
 
-// newSiteWith builds the site with plugins, lv among them.
+// newSiteWith builds the site with plugins, lv among them, and collage-client,
+// which live requires.
 func newSiteWith(t *testing.T, lv *live.Plugin, plugins []collage.Plugin, options ...collagetest.SiteOption) *site {
 	t.Helper()
 	s := &site{lv: lv}
@@ -48,7 +50,7 @@ func newSiteWith(t *testing.T, lv *live.Plugin, plugins []collage.Plugin, option
 	})).Build()
 	page := collage.NewFragment("page", "page.html").WithSlotFragment("cpu", cpu).Build()
 	built := collagetest.NewSite(t, append([]collagetest.SiteOption{
-		collagetest.WithPlugins(plugins...),
+		collagetest.WithPlugins(append([]collage.Plugin{client.New()}, plugins...)...),
 		collagetest.WithoutHome(),
 		collagetest.WithTemplates(map[string]string{
 			"page.html": `<html><head>{{liveClient}}</head><body>{{slot "cpu"}}</body></html>`,
@@ -169,7 +171,7 @@ func TestReadsItsConfiguration(t *testing.T) {
 func TestRemovedKeys(t *testing.T) {
 	for _, config := range []string{`{"path":"/ws/"}`, `{"ping":"10s"}`} {
 		lv := live.New(live.Options{})
-		_, err := collagetest.TrySite(t, collagetest.WithPlugins(ws.New(ws.Options{}), lv),
+		_, err := collagetest.TrySite(t, collagetest.WithPlugins(client.New(), ws.New(ws.Options{}), lv),
 			collagetest.WithPluginConfig(ws.Name, config))
 		if err == nil || !strings.Contains(err.Error(), "unknown key") {
 			t.Errorf("%s: err = %v, want unknown key", config, err)
