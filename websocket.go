@@ -65,7 +65,7 @@ type Plugin struct {
 func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.4.2" }
+func (p *Plugin) Version() string { return "0.4.3" }
 
 // errNoLive is the error for an application without the live plugin.
 var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")

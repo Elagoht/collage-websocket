@@ -7,6 +7,7 @@
     "elagoht/live"
   ],
   "order": -1,
+  "setup": "Works on its own once elagoht/live is set up: pushes go over a WebSocket at `/_live/ws/` instead of an event stream, and nothing in the templates changes.\nWorth it only where a proxy or platform breaks event streams.",
   "config": {
     "type": "object",
     "description": "A collage plugin that carries collage-live's pushed fragments over a WebSocket instead of an event stream.",
