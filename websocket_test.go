@@ -21,11 +21,14 @@ import (
 )
 
 type site struct {
-	app    *collage.App
-	logs   *collagetest.Logs
-	lv     *live.Plugin
-	cpu    atomic.Int64
-	server *httptest.Server
+	app  *collage.App
+	logs *collagetest.Logs
+	lv   *live.Plugin
+	cpu  atomic.Int64
+	// renders counts the cpu fragment's data handler calls: each is a render
+	// made with a connecting reader's cookies.
+	renders atomic.Int64
+	server  *httptest.Server
 }
 
 // newSite builds the site as collage plugin add lists the plugins: websocket,
@@ -46,6 +49,7 @@ func newSiteWith(t *testing.T, lv *live.Plugin, plugins []collage.Plugin, option
 	t.Helper()
 	s := &site{lv: lv}
 	cpu := collage.NewFragment("cpu", "cpu.html").WithData(collage.LoadTagged(func(context.Context, *collage.RenderContext) (int64, []string, error) {
+		s.renders.Add(1)
 		return s.cpu.Load(), []string{"system:cpu"}, nil
 	})).Build()
 	page := collage.NewFragment("page", "page.html").WithSlotFragment("cpu", cpu).Build()
@@ -269,5 +273,41 @@ func TestRefusals(t *testing.T) {
 	header := http.Header{"Origin": []string{"https://evil.example"}}
 	if _, res, err := websocket.Dial(ctx, base+"?f=/live/cpu", &websocket.DialOptions{HTTPHeader: header}); err == nil || res == nil || res.StatusCode != http.StatusForbidden {
 		t.Errorf("cross-origin: err %v", err)
+	}
+}
+
+// A handshake from another origin is refused before anything is rendered. The
+// subscription renders with the reader's cookies and may mint the forgery cookie,
+// so a page elsewhere opening a connection on the reader's behalf must reach
+// neither: it is answered 403, as before, with nothing rendered and no cookie set.
+func TestCrossOriginRendersNothing(t *testing.T) {
+	s := newSite(t)
+	ctx := context.Background()
+	url := "ws" + strings.TrimPrefix(s.server.URL, "http") + "/_live/ws/?f=/live/cpu"
+	for _, origin := range []string{"https://evil.example", "null", "http://" + strings.ToUpper("evil.example")} {
+		header := http.Header{"Origin": []string{origin}}
+		_, res, err := websocket.Dial(ctx, url, &websocket.DialOptions{HTTPHeader: header})
+		if err == nil || res == nil || res.StatusCode != http.StatusForbidden {
+			t.Errorf("Origin %q: err %v, want 403", origin, err)
+		}
+		if res != nil && len(res.Cookies()) > 0 {
+			t.Errorf("Origin %q: the refusal set %v", origin, res.Cookies())
+		}
+	}
+	if n := s.renders.Load(); n != 0 {
+		t.Errorf("a cross-origin handshake rendered the fragment %d times, want none", n)
+	}
+
+	// The site's own origin, and none at all, still connect and are rendered for.
+	for _, header := range []http.Header{{"Origin": []string{s.server.URL}}, nil} {
+		conn, _, err := websocket.Dial(ctx, url, &websocket.DialOptions{HTTPHeader: header})
+		if err != nil {
+			t.Fatalf("Origin %v: %v", header, err)
+		}
+		read(t, conn)
+		conn.CloseNow()
+	}
+	if n := s.renders.Load(); n != 2 {
+		t.Errorf("two same-origin handshakes rendered %d times, want 2", n)
 	}
 }

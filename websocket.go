@@ -27,6 +27,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	live "github.com/Elagoht/collage-live"
@@ -65,7 +68,7 @@ type Plugin struct {
 func New(opts Options) *Plugin { return &Plugin{opts: opts} }
 
 func (p *Plugin) Name() string    { return Name }
-func (p *Plugin) Version() string { return "0.4.3" }
+func (p *Plugin) Version() string { return "0.4.4" }
 
 // errNoLive is the error for an application without the live plugin.
 var errNoLive = errors.New("websocket: no collage-live plugin to carry; add elagoht/live")
@@ -112,7 +115,24 @@ func (p *Plugin) Shutdown(context.Context) error { return nil }
 // The subscription is made before the upgrade, so a URL that is not a fragment
 // path is answered with a plain 400 a developer can read, and the forgery cookie a
 // pushed form needs goes out on the upgrade response.
+//
+// The origin is checked before either. Subscribing renders every watched fragment
+// with the request's cookies and may mint the forgery cookie: a page on another
+// origin opening a connection on the reader's behalf would have the server do
+// both before Accept refused it. So a handshake whose origin Accept would refuse
+// is handed to Accept at once, which answers it as it always has — its 403, or
+// the protocol error it finds first — and nothing is rendered.
 func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
+	accept := &websocket.AcceptOptions{OriginPatterns: p.opts.OriginPatterns}
+	if !originAllowed(r, accept.OriginPatterns) {
+		if conn, err := websocket.Accept(w, r, accept); err == nil {
+			// originAllowed refuses only what Accept refuses; were the two ever
+			// to disagree, the connection still gets nothing.
+			conn.Close(websocket.StatusPolicyViolation, "origin not allowed")
+		}
+		return
+	}
+
 	sub, err := p.live.Subscribe(r, live.ParseWatches(r.URL.Query()["f"]))
 	switch {
 	case errors.Is(err, live.ErrClosed):
@@ -137,7 +157,7 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 	}
 
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: p.opts.OriginPatterns})
+	conn, err := websocket.Accept(w, r, accept)
 	if err != nil {
 		// Accept has answered already.
 		return
@@ -208,4 +228,40 @@ func (p *Plugin) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// originAllowed reports whether websocket.Accept would let r's Origin through
+// with patterns, so serve can refuse a handshake before it renders anything. It
+// is Accept's own rule, which the library does not export: no Origin at all (not
+// a browser) is allowed, as is one whose host is the request's own, compared
+// without case; otherwise a pattern must match, without case and as path.Match
+// matches — against the origin's host, or its scheme and host when the pattern
+// names a scheme. An Origin that does not parse, or a pattern that does not, is
+// refused.
+func originAllowed(r *http.Request, patterns []string) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(r.Host, u.Host) {
+		return true
+	}
+	for _, pattern := range patterns {
+		target := u.Host
+		if strings.Contains(pattern, "://") {
+			target = u.Scheme + "://" + u.Host
+		}
+		matched, err := path.Match(strings.ToLower(pattern), strings.ToLower(target))
+		if err != nil {
+			return false
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
